@@ -1,0 +1,846 @@
+{
+  "name": "Finanzinfos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -544,
+        16
+      ],
+      "id": "f2492828-75bc-47be-af11-cc74d04937a1",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://investor.spglobal.com/rss/pressrelease.aspx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        -176
+      ],
+      "id": "ca2f1f30-8ea6-4c04-8106-b29141aca082",
+      "name": "RSS S&P 500"
+    },
+    {
+      "parameters": {
+        "url": "https://www.finanzen.net/rss/analysen",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        -32
+      ],
+      "id": "65561478-a943-4287-a0b8-d3d38e0d3ded",
+      "name": "Analysen Finanzen.net"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Du bist ein Finanzanalyse-Assistent.\n\nDu analysierst IMMER genau EINEN Artikel: den Input des aktuellen Items.\nDu gibst IMMER ausschließlich EIN gültiges JSON-Objekt zurück.\nKein Markdown. Kein Text außerhalb des JSON. Keine zusätzlichen Keys.\nAlle Keys müssen vorhanden sein (auch wenn leer).\n\nWICHTIG zur Relevanz:\n- Starte gedanklich bei relevance = 1.\n- Erhöhe NUR, wenn der Artikel dafür klare, konkrete Anhaltspunkte enthält.\n- relevance = 3 ist NICHT der Default. 3 nur bei wirklich moderater, konkreter News.\n- Wenn unklar/vage/ohne harte neue Info → relevance MUSS 1 oder 2 sein.\n\nImpact-Tags:\n- Maximal 2 impact_tags.\n- Wenn eine klare Richtung erkennbar ist, dürfen impact_tags NICHT leer sein.\n- Wenn wirklich keine plausible Marktreaktion ableitbar ist → [] ist erlaubt (Ausnahme).\n\nTicker:\n- Maximal 5 tickers.\n- Wenn unsicher → [].\n- Nur Kürzel wie BAYN, MRK, ASML, TMUS. Keine Firmennamen, keine Börsenplätze.\n\ncommentary:\n- Pflichtfeld, niemals weglassen.\n- Maximal 400 Zeichen.\n\nWerkzeuge/Tools:\n- Nutze Tools nur, wenn sie für tickers zwingend nötig sind. Für relevance und impact_tags NICHT.\n\nasset_lookup / asset_hit:\n- Das Item kann Felder asset_hit (boolean) und asset_hits (Array) enthalten, die bereits vorher berechnet wurden.\n- Diese Werte sind verbindlich und dürfen NICHT verändert werden.\n- Wenn asset_hit/asset_hits vorhanden sind, gib sie exakt so zurück.\n- asset_lookup (falls vorhanden) wird NICHT zur Berechnung verwendet.\n- Wichtig: Das beeinflusst NICHT die normale Analyse (category, relevance, sentiment, impact_tags, etc.).\n\n\n\n\n"
+            },
+            {
+              "content": "=Quelle: {{$json.source}}\nDatum: {{$json.date}}\nTitel: {{$json.title}}\nText: {{$json.text}}\n\nVorab berechnete Asset-Informationen (verbindlich):\n- asset_hit: {{$json.asset_hit}}\n- asset_hits: {{$json.asset_hits}}\n\nWICHTIG:\n- asset_relevant und affected_assets wurden vorab berechnet.\n- Du DARFST diese beiden Felder NICHT verändern.\n- Gib sie exakt so im JSON zurück.\n\nAnalysiere GENAU diesen einen Artikel.\n\nGib AUSSCHLIESSLICH ein gültiges JSON-Objekt zurück.\nKein Markdown. Kein Text außerhalb des JSON.\n\nErlaubte Kategorien:\nmacro, rates, equities, etf, dividends, earnings, analyst_rating, adhoc, m&a, commodities, crypto, geopolitics, company_news, other\n\nErlaubte Sentiments:\npositive, neutral, negative, mixed, unknown\n\nErlaubte Impact-Tags:\nrisk_on, risk_off, rates_up, rates_down, equities_up, equities_down,\nsector_tech, sector_financials, sector_healthcare\n\nJSON-Format (exakt einhalten):\n{\n  \"category\": \"macro\",\n  \"relevance\": 1,\n  \"sentiment\": \"neutral\",\n  \"impact_tags\": [],\n  \"one_liner\": \"Ein kurzer Satz, der den Kern des Artikels zusammenfasst.\",\n  \"commentary\": \"4–6 Sätze Einordnung. Maximal 400 Zeichen.\",\n  \"tickers\": [],\n  \"asset_relevant\": false,\n  \"affected_assets\": []\n}\n\nRelevance-Skala (verbindlich):\n5 = harte kursrelevante Meldung (Insolvenz, Gewinnwarnung/Guidance-Senkung, Kapitalerhöhung/Placement, bindendes M&A-Angebot, Earnings mit großer Überraschung, Adhoc mit harten Zahlen zu Ergebnis/Guidance)\n4 = starke finanzielle/strategische Implikation oder Analysten-Upgrade/Downgrade mit großer Kurszieländerung\n3 = moderat relevant (konkrete neue Business-News mit plausibler Kurswirkung)\n2 = gering relevant (Listen/Übersichten, weiche Aussagen, kleinere Updates ohne klare Zahlen/Implikationen)\n1 = kaum relevant (vage/leer/ohne neue Info)\n\nHarte Regeln zur Relevance (zwingend):\n- MUSS 5 sein bei: Gewinnwarnung/Guidance-Senkung, Insolvenz/Restrukturierung, Kapitalerhöhung/Placement, bindendes Übernahmeangebot, Earnings mit großer Überraschung.\n- MUSS 4 sein bei: großes Upgrade/Downgrade mit großer Kurszieländerung oder strategisch transformativem Deal.\n- MUSS 1 oder 2 sein bei: Zusammenfassungen/Listen, “Markt schaut auf…”, Wiederholungen ohne neue Fakten, sehr allgemeine Aussagen.\n- 3 ist NUR erlaubt, wenn eine konkrete neue Nachricht mit plausibler moderater Kurswirkung enthalten ist.\n\nImpact-Tags Mapping:\n- positive Analystenbewertung/Hochstufung/starkes Earnings → equities_up\n- negative Analystenbewertung/Gewinnwarnung → equities_down\n- restriktive Geldpolitik/Zinsanhebungserwartung → rates_up\n- dovishe Signale/Zinssenkungserwartung → rates_down\n- Rezessionsangst/Flucht in sichere Anlagen → risk_off\n- Wachstumsoptimismus/Risk Appetite → risk_on\n- Banken/Versicherer → sector_financials\n- Software/Halbleiter/Plattformen → sector_tech\n- Pharma/MedTech/Biotech → sector_healthcare\n\n\n\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 500,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "name": "Finanzbewertung",
+              "schema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"category\": { \"type\": \"string\", \"enum\": [\"macro\",\"rates\",\"equities\",\"etf\",\"dividends\",\"earnings\",\"analyst_rating\",\"adhoc\",\"m&a\",\"commodities\",\"crypto\",\"geopolitics\",\"company_news\",\"other\"] },\n    \"relevance\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 5 },\n    \"sentiment\": { \"type\": \"string\", \"enum\": [\"positive\",\"neutral\",\"negative\",\"mixed\",\"unknown\"] },\n    \"impact_tags\": { \"type\": \"array\", \"items\": { \"type\": \"string\", \"enum\": [\"risk_on\",\"risk_off\",\"rates_up\",\"rates_down\",\"equities_up\",\"equities_down\",\"sector_tech\",\"sector_financials\",\"sector_healthcare\"] } },\n    \"one_liner\": { \"type\": \"string\" },\n    \"commentary\": { \"type\": \"string\", \"description\": \"4-6 Saetze Einordnung, maximal 400 Zeichen.\" },\n    \"tickers\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n\n    \"asset_hit\": { \"type\": \"boolean\", \"description\": \"true, wenn der Artikel eindeutig eines meiner Assets betrifft (Match via ISIN/Ticker/Asset-ID im Lookup).\" },\n    \"asset_hits\": {\n      \"type\": \"array\",\n      \"description\": \"Liste der gematchten Asset-IDs aus asset_lookup (z.B. SAP, ALLIANZ). Leer wenn asset_hit=false.\",\n      \"items\": { \"type\": \"string\" }\n    }\n  },\n  \"required\": [\"category\",\"relevance\",\"sentiment\",\"impact_tags\",\"one_liner\",\"commentary\",\"tickers\",\"asset_hit\",\"asset_hits\"],\n  \"additionalProperties\": false\n}\n"
+            }
+          },
+          "temperature": 0.3,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1872,
+        -32
+      ],
+      "id": "d3b7e161-e527-4496-a961-83f82528e945",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "zfQ1T52WmoCqgFBw",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.suredividend.com/feed/",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        -304
+      ],
+      "id": "e0180dfe-6fdb-41e1-96ea-075c0a0a4a17",
+      "name": "100 DIvidenden RSS"
+    },
+    {
+      "parameters": {
+        "url": "https://www.finanznachrichten.de/rss-aktien-empfehlungen-kaufen",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        128
+      ],
+      "id": "de751992-25a2-4a23-be0d-095a3fc36b0c",
+      "name": "Aktuelle Kaufempfehlungen"
+    },
+    {
+      "parameters": {
+        "url": "https://www.finanznachrichten.de/rss-aktien-adhoc",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        304
+      ],
+      "id": "67f87cbd-8950-4afa-88c4-c4ea2914c209",
+      "name": "ad-hoc Meldungen"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        272,
+        -64
+      ],
+      "id": "162f8838-0f5c-4872-a570-dd792eb5ae1d",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        -32
+      ],
+      "id": "faedd229-1262-4de8-8751-5817bb21a5b8",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "076e7317-77ce-4131-8623-d13e7df7cdeb",
+              "name": "category",
+              "value": "={{ $json.content[0].text.category }}",
+              "type": "string"
+            },
+            {
+              "id": "30e9cb75-d9bd-4cae-890e-931cdef55b4c",
+              "name": "relevance",
+              "value": "={{ $json.content[0].text.relevance }}",
+              "type": "number"
+            },
+            {
+              "id": "da61e20c-99e3-4ca2-a0e9-af5676be0c69",
+              "name": "sentiment",
+              "value": "={{ $json.content[0].text.sentiment }}",
+              "type": "string"
+            },
+            {
+              "id": "3f918f06-095b-4b0c-abe7-3d2519314df0",
+              "name": "impact_tags",
+              "value": "={{ $json.content[0].text.impact_tags }}",
+              "type": "array"
+            },
+            {
+              "id": "fa28fcb6-bd3f-44fe-b046-0620fb9a9277",
+              "name": "one_liner",
+              "value": "={{ $json.content[0].text.one_liner }}",
+              "type": "string"
+            },
+            {
+              "id": "870b2452-30b8-4ca6-a6d0-861a1e3df435",
+              "name": "tickers",
+              "value": "={{ $json.content[0].text.tickers }}",
+              "type": "array"
+            },
+            {
+              "id": "1a1153af-9c78-4710-8127-1f08c6205a38",
+              "name": "ai_status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "9732f736-ff11-4ee6-87ea-c24b91329e0a",
+              "name": "commentary",
+              "value": "={{ $json.content[0].text.commentary }}",
+              "type": "string"
+            },
+            {
+              "id": "e904fb24-5a76-4e13-baaa-c92708489e90",
+              "name": "asset_hit",
+              "value": "={{ $json.content[0].text.asset_hit }}",
+              "type": "boolean"
+            },
+            {
+              "id": "2fea9503-3903-476d-a138-4b5985d9f662",
+              "name": "asset_hits",
+              "value": "={{ $json.content[0].text.asset_hits }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        -32
+      ],
+      "id": "c06565fb-51c4-4c8f-8710-0b4652b47384",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2496,
+        160
+      ],
+      "id": "f915e38f-bc46-4562-a0ed-421da5f8bf3f",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "html": "{{$json.html}}\n"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        3264,
+        160
+      ],
+      "id": "e69d95d1-194c-4679-a877-4593dc3e80d5",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "fromEmail": "no-reply-n8n@glum.de",
+        "toEmail": "domenik@glum.de",
+        "subject": "=Finanzreport des Tages",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3616,
+        160
+      ],
+      "id": "5858fc13-d249-4f90-8fbb-4680de04766b",
+      "name": "Send email",
+      "webhookId": "3e13eb49-56eb-48fc-bac7-5a29eda82577",
+      "credentials": {
+        "smtp": {
+          "id": "Wr75ZBOgQ0xWLxX8",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "upload",
+        "path": "/finanzen.dashboard/index.html",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        3520,
+        -112
+      ],
+      "id": "bf122947-efd4-4c6f-b09f-bd4bced4ffe6",
+      "name": "FTP",
+      "credentials": {
+        "sftp": {
+          "id": "XjXVIKZnabOLeRU4",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "=base64",
+        "options": {
+          "fileName": "index.html",
+          "mimeType": "text/html"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        3264,
+        -112
+      ],
+      "id": "10c637f4-5c86-4a23-8270-38a9a3bd98a5",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $json.html;\n\nreturn [\n  {\n    base64: Buffer.from(html, 'utf8').toString('base64')\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        16
+      ],
+      "id": "fb3edaa6-4cd1-43cc-8084-095bc7c8801e",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "url": "https://www.finanzen.net/rss/allianz-rss-feed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        480
+      ],
+      "id": "0102a0d1-e4f7-4b70-bf54-9c7dd6975c4c",
+      "name": "Allianz RSS"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\n\n// Hilfsfunktion: nur sinnvolle Felder behalten\nfunction cleanAsset(a) {\n  const out = {\n    asset_id: a.asset_id || \"\",\n    asset_name: a.asset_name || \"\",\n    asset_type: a.asset_type || \"\",\n    isin: a.isin || \"\",\n    sector: a.sector || \"\"\n  };\n  if (a.ticker) out.ticker = a.ticker;        // nur wenn nicht leer\n  return out;\n}\n\nconst byAny = {};\n\nfor (const r of rows) {\n  const asset = cleanAsset(r);\n\n  // Keys hinzufügen: nur wenn nicht leer\n  const keys = [];\n  if (asset.asset_id) keys.push(asset.asset_id);\n  if (asset.isin) keys.push(asset.isin);\n  if (asset.ticker) keys.push(asset.ticker);\n\n  for (const k of keys) byAny[k] = asset;\n}\n\nreturn [{ json: { asset_lookup: { byAny } } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        272
+      ],
+      "id": "b61ac28e-2858-4ba6-be3a-6f3942f5cb6d",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1088,
+        144
+      ],
+      "id": "9e812348-a615-4fd3-86b8-434e127c8877",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst lookupItem = items.find(i => i.json?.asset_lookup);\nconst lookup = lookupItem?.json?.asset_lookup ?? { byISIN:{}, byAssetId:{}, byTicker:{} };\n\nconst newsItems = items\n  .filter(i => !i.json?.asset_lookup)\n  .filter(i => i.json?.hasText); // <- schmeißt hasText=false raus\n\nreturn newsItems.map(i => ({\n  json: { ...i.json, asset_lookup: lookup }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        144
+      ],
+      "id": "e9cc2d58-8d6f-4250-b44b-7c53736bb128",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_gUfiesnjx9IxbvR1_h5NzM9_11RN5YWE-gMJ8RxO1Q",
+          "mode": "list",
+          "cachedResultName": "Assetliste",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_gUfiesnjx9IxbvR1_h5NzM9_11RN5YWE-gMJ8RxO1Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Tabellenblatt1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_gUfiesnjx9IxbvR1_h5NzM9_11RN5YWE-gMJ8RxO1Q/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        544,
+        272
+      ],
+      "id": "d45b1725-2d00-4e51-a236-e79cf1e66ce9",
+      "name": "Assetliste",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "b4MfnEIGelPm5XRE",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction isObj(x){ return x && typeof x === \"object\" && !Array.isArray(x); }\n\nfunction findLookup(items){\n  for (let i = 0; i < items.length; i++) {\n    const al = items[i].json?.asset_lookup;\n    if (isObj(al?.byAny) && Object.keys(al.byAny).length > 0) {\n      return { lookup: al.byAny, idx: i };\n    }\n  }\n  return { lookup: {}, idx: -1 };\n}\n\nconst { lookup: byAny, idx: lookupIdx } = findLookup(items);\n\n// Optional: Lookup-Item rauswerfen, damit es nicht als “News” weiterläuft\nreturn items\n  .filter((_, i) => i !== lookupIdx)\n  .map(i => ({\n    json: {\n      ...i.json,\n      asset_lookup: { byAny }\n    }\n  }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        128
+      ],
+      "id": "2169b4c9-0538-4aa6-8902-82de057ad6ef",
+      "name": "Code in JavaScript6"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==============================\n// n8n Code Node – News Dashboard (mit Zeit-Ausblenden + Karten-Ausklappen)\n// ==============================\n\n// ---------- Helpers ----------\nfunction esc(s) {\n  return String(s ?? \"\")\n    .replaceAll(\"&\", \"&amp;\")\n    .replaceAll(\"<\", \"&lt;\")\n    .replaceAll(\">\", \"&gt;\")\n    .replaceAll('\"', \"&quot;\")\n    .replaceAll(\"'\", \"&#039;\");\n}\n\nfunction fmtDate(iso) {\n  try {\n    return new Date(iso).toLocaleString(\"de-DE\", {\n      dateStyle: \"medium\",\n      timeStyle: \"short\"\n    });\n  } catch {\n    return String(iso ?? \"\");\n  }\n}\n\nfunction uniqSorted(arr) {\n  return Array.from(new Set(arr.filter(Boolean))).sort((a, b) =>\n    String(a).localeCompare(String(b), \"de\")\n  );\n}\n\nfunction normalizeAssetHits(assetHits) {\n  if (Array.isArray(assetHits)) {\n    return assetHits.filter(Boolean).map(String);\n  }\n  if (typeof assetHits === \"string\") {\n    return assetHits\n      .split(/[,;|]/)\n      .map(item => item.trim())\n      .filter(Boolean);\n  }\n  return [];\n}\n\nfunction isExplicitTrue(value) {\n  if (value === true || value === 1 || value === \"1\") return true;\n  if (typeof value === \"string\") {\n    const normalized = value.trim().toLowerCase();\n    return normalized === \"true\" || normalized === \"yes\" || normalized === \"y\";\n  }\n  return false;\n}\n\n// ---------- Kategorie-Priorität ----------\nconst CATEGORY_PRIORITY = {\n  adhoc: 1,\n  earnings: 2,\n  analyst_rating: 3,\n  macro: 4,\n  rates: 5,\n  equities: 6,\n  etf: 7,\n  dividends: 8,\n  company_news: 9,\n  geopolitics: 10,\n  commodities: 11,\n  crypto: 12,\n  other: 99\n};\n\n// ---------- Config ----------\nconst TOP_HITS_MIN_RELEVANCE = 2; // ab hier kommen Asset-Hits in den Top-Block\nconst TOP_HITS_MAX_ITEMS = 6; // max Cards im Top-Block\n// Zeitliches Ausblenden (nur visuell)\nconst AGE_DIM_1_HOURS = 24; // ab 24h leicht ausgrauen\nconst AGE_DIM_2_HOURS = 48; // ab 48h stark ausgrauen\n\n// ---------- Input ----------\nconst input = $input.first().json || {};\nconst items = Array.isArray(input.items) ? input.items.slice() : [];\n\n// ---------- Sortierung ----------\n// 1. Relevanz DESC\n// 2. Kategorie ASC\n// 3. Datum DESC\nitems.sort((a, b) => {\n  const r = (Number(b.relevance) || 0) - (Number(a.relevance) || 0);\n  if (r !== 0) return r;\n\n  const cA = CATEGORY_PRIORITY[a.category] ?? 99;\n  const cB = CATEGORY_PRIORITY[b.category] ?? 99;\n  if (cA !== cB) return cA - cB;\n\n  return new Date(b.date) - new Date(a.date);\n});\n\n// ---------- Filter-Optionen dynamisch ----------\nconst categories = uniqSorted(items.map(x => String(x.category || \"other\")));\nconst sources = uniqSorted(items.map(x => String(x.source || \"\")));\nconst categoryCounts = items.reduce((acc, item) => {\n  const value = String(item.category || \"other\");\n  acc[value] = (acc[value] || 0) + 1;\n  return acc;\n}, {});\nconst sourceCounts = items.reduce((acc, item) => {\n  const value = String(item.source || \"unknown\");\n  acc[value] = (acc[value] || 0) + 1;\n  return acc;\n}, {});\nconst relevanceCounts = items.reduce((acc, item) => {\n  const value = Math.max(0, Math.min(5, Number(item.relevance) || 0));\n  acc[value] = (acc[value] || 0) + 1;\n  return acc;\n}, {});\nconst categoryTotal = categories.reduce((sum, category) => sum + (categoryCounts[category] || 0), 0);\nconst categoryColors = [\n  \"#60a5fa\",\n  \"#34d399\",\n  \"#fbbf24\",\n  \"#f472b6\",\n  \"#a78bfa\",\n  \"#fb7185\",\n  \"#38bdf8\",\n  \"#fb923c\",\n  \"#22c55e\",\n  \"#e879f9\"\n];\nlet categoryGradient = \"conic-gradient(rgba(255,255,255,.15) 0 100%)\";\nif (categoryTotal > 0) {\n  let acc = 0;\n  const stops = categories.map((category, index) => {\n    const count = categoryCounts[category] || 0;\n    const pct = (count / categoryTotal) * 100;\n    const start = acc;\n    acc += pct;\n    const color = categoryColors[index % categoryColors.length];\n    return `${color} ${start.toFixed(2)}% ${acc.toFixed(2)}%`;\n  });\n  categoryGradient = `conic-gradient(${stops.join(\", \")})`;\n}\nconst sourceTotal = sources.reduce((sum, source) => sum + (sourceCounts[source] || 0), 0);\nlet sourceGradient = \"conic-gradient(rgba(255,255,255,.15) 0 100%)\";\nif (sourceTotal > 0) {\n  let acc = 0;\n  const stops = sources.map((source, index) => {\n    const count = sourceCounts[source] || 0;\n    const pct = (count / sourceTotal) * 100;\n    const start = acc;\n    acc += pct;\n    const color = categoryColors[index % categoryColors.length];\n    return `${color} ${start.toFixed(2)}% ${acc.toFixed(2)}%`;\n  });\n  sourceGradient = `conic-gradient(${stops.join(\", \")})`;\n}\nconst relevanceLevels = [5, 4, 3, 2, 1, 0];\nconst relevanceTotal = relevanceLevels.reduce((sum, level) => sum + (relevanceCounts[level] || 0), 0);\nconst relevanceColors = [\"#22c55e\", \"#60a5fa\", \"#f59e0b\", \"#f97316\", \"#ef4444\", \"#94a3b8\"];\nlet relevanceGradient = \"conic-gradient(rgba(255,255,255,.15) 0 100%)\";\nif (relevanceTotal > 0) {\n  let acc = 0;\n  const stops = relevanceLevels.map((level, index) => {\n    const count = relevanceCounts[level] || 0;\n    const pct = (count / relevanceTotal) * 100;\n    const start = acc;\n    acc += pct;\n    const color = relevanceColors[index % relevanceColors.length];\n    return `${color} ${start.toFixed(2)}% ${acc.toFixed(2)}%`;\n  });\n  relevanceGradient = `conic-gradient(${stops.join(\", \")})`;\n}\nconst sentimentCounts = items.reduce(\n  (acc, item) => {\n    const value = String(item.sentiment || \"unknown\").toLowerCase();\n    if (value === \"positive\") acc.positive += 1;\n    else if (value === \"negative\") acc.negative += 1;\n    else if (value === \"neutral\") acc.neutral += 1;\n    else acc.other += 1;\n    return acc;\n  },\n  { positive: 0, neutral: 0, negative: 0, other: 0 }\n);\nconst sentimentTotal = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;\nconst sentimentParts = {\n  positive: sentimentTotal ? (sentimentCounts.positive / sentimentTotal) * 100 : 0,\n  neutral: sentimentTotal ? (sentimentCounts.neutral / sentimentTotal) * 100 : 0,\n  negative: sentimentTotal ? (sentimentCounts.negative / sentimentTotal) * 100 : 0\n};\n\n// ---------- Top Hits (deine Assets) ----------\nconst topHitsAll = items.filter(n => {\n  return isExplicitTrue(n.asset_hit) && (Number(n.relevance) || 0) >= TOP_HITS_MIN_RELEVANCE;\n});\nconst topHits = topHitsAll.slice(0, TOP_HITS_MAX_ITEMS);\nconst topHitsCount = topHitsAll.length;\n\n// ---------- Cards Renderer ----------\nfunction renderCard(n) {\n  const rel = Number(n.relevance ?? 0);\n  const sent = String(n.sentiment || \"unknown\").toLowerCase();\n  const cat = String(n.category || \"other\");\n  const src = String(n.source || \"\");\n  const assets = normalizeAssetHits(n.asset_hits);\n  const isAssetHit = isExplicitTrue(n.asset_hit) || assets.length > 0;\n\n  // Alert-Stripe (wie vorher)\n  const alertClass = rel >= 4 ? \"alert\" : \"\";\n\n  // Relevanz-Badge-Farbe\n  const relBadge = rel >= 4 ? \"good\" : rel >= 2 ? \"warn\" : \"info\";\n\n  // Sentiment-Badge-Farbe\n  const sentBadge =\n    sent === \"positive\" ? \"good\" : sent === \"negative\" ? \"bad\" : sent === \"mixed\" ? \"warn\" : \"info\";\n\n  // Zeitliches Ausblenden\n  const ageHours = (() => {\n    try {\n      const t = new Date(n.date).getTime();\n      if (!Number.isFinite(t)) return 0;\n      return (Date.now() - t) / 36e5;\n    } catch {\n      return 0;\n    }\n  })();\n\n  let ageClass = \"\";\n  if (ageHours >= AGE_DIM_2_HOURS) ageClass = \"old-48\";\n  else if (ageHours >= AGE_DIM_1_HOURS) ageClass = \"old-24\";\n\n  const chips = [\n    isAssetHit ? `<span class=\"chip assetHit\">🎯 Asset-Hit</span>` : \"\",\n    `<span class=\"chip ${relBadge}\">Relevanz: ${rel}</span>`,\n    `<span class=\"chip ${sentBadge}\">Sentiment: ${esc(sent)}</span>`,\n    `<span class=\"chip\">Kategorie: ${esc(cat)}</span>`,\n    src ? `<span class=\"chip\">Quelle: ${esc(src)}</span>` : \"\"\n  ]\n    .filter(Boolean)\n    .join(\"\");\n\n  const assetsLine = isAssetHit\n    ? `<div class=\"assetLine\"><span class=\"label\">Assets:</span> ${esc(assets.join(\", \"))}</div>`\n    : \"\";\n\n  const oneLiner = n.one_liner ? `<p class=\"text\">${esc(n.one_liner)}</p>` : \"\";\n  const commentaryText = n.commentary ? String(n.commentary) : \"\";\n  const hasCommentary = commentaryText.length > 0;\n  const defaultExpanded = isAssetHit && rel >= TOP_HITS_MIN_RELEVANCE;\n  const commentaryClass = defaultExpanded ? \"commentary\" : \"commentary collapsed\";\n  const commentary = hasCommentary\n    ? `<p class=\"text muted ${commentaryClass}\">${esc(commentaryText)}</p>`\n    : \"\";\n  const toggleButton = hasCommentary\n    ? `<button class=\"btn ghost toggleCommentary\" type=\"button\" data-state=\"${\n        defaultExpanded ? \"expanded\" : \"collapsed\"\n      }\">${defaultExpanded ? \"Einschätzung ausblenden\" : \"Einschätzung\"}</button>`\n    : \"\";\n\n  // data-* Werte: lieber \"roh\" (ohne HTML escaping), weil wir exakt matchen\n  // title Tooltip: Alter in Stunden\n  const tooltip = `${Math.max(0, Math.floor(ageHours))}h alt`;\n\n  return `\n  <article\n    class=\"card ${alertClass} ${ageClass} ${isAssetHit ? \"isAssetHit\" : \"\"}\"\n    data-relevance=\"${rel}\"\n    data-category=\"${cat}\"\n    data-sentiment=\"${sent}\"\n    data-source=\"${src}\"\n    data-title=\"${esc(n.title || \"\")}\"\n    data-assets=\"${esc(assets.join(\" \")).toLowerCase()}\"\n    title=\"${esc(tooltip)}\"\n  >\n    <h2 class=\"title\">${esc(n.title || \"Ohne Titel\")}</h2>\n\n    <div class=\"meta\">\n      <span>${esc(src || \"unknown\")}</span>\n      <span>•</span>\n      <span>${fmtDate(n.date)}</span>\n    </div>\n\n    <div class=\"chips\">${chips}</div>\n\n    ${assetsLine}\n    ${oneLiner}\n    ${commentary}\n\n    <div class=\"footer\">\n      <a class=\"btn\" href=\"${esc(n.link || \"#\")}\" target=\"_blank\" rel=\"noopener noreferrer\">\n        Artikel öffnen →\n      </a>\n      ${toggleButton}\n    </div>\n  </article>`;\n}\n\n// ---------- Main Cards ----------\nconst cardsHtml = items.map(n => renderCard(n)).join(\"\");\n\n// ---------- Top Hits Block ----------\nconst topHitsHtml = topHitsCount\n  ? `\n  <section class=\"topHits\">\n    <div class=\"topHitsHead\">\n      <h2>Top Hits (deine Assets)</h2>\n      <div class=\"topHitsMeta\">${topHits.length} von ${topHitsCount} Treffern (Relevanz ≥ ${TOP_HITS_MIN_RELEVANCE})</div>\n    </div>\n    <div class=\"topHitsGrid\">\n      ${topHits.map(n => renderCard(n)).join(\"\")}\n    </div>\n  </section>\n  `\n  : \"\";\n\n// ---------- Filter UI ----------\nconst filterBar = `\n<div class=\"filters\">\n  <div class=\"filtersRow\">\n    <button class=\"btn ghost\" id=\"reset\" type=\"button\">Reset</button>\n  </div>\n\n  <div class=\"filtersMeta\">\n    <span id=\"countShown\">0</span> von <span id=\"countAll\">${items.length}</span> angezeigt\n    • Sortierung: Relevanz (DESC) → Kategorie → Datum\n    • Alert ab Relevanz ≥ 3\n  </div>\n</div>`;\n\nconst sentimentCard = `\n<section class=\"sideCard\">\n  <div class=\"sideCardTitle\">Sentiment Überblick</div>\n  <div class=\"sentimentSummary\">\n    <div\n      class=\"sentimentDonut\"\n      style=\"--pos:${sentimentParts.positive.toFixed(2)};--neu:${sentimentParts.neutral.toFixed(\n        2\n      )};--neg:${sentimentParts.negative.toFixed(2)};\"\n      aria-label=\"Sentiment Verteilung\"\n      role=\"img\"\n    >\n      <div class=\"sentimentDonutInner\">${sentimentTotal || 0}</div>\n    </div>\n    <div class=\"sentimentLegend\">\n      <button class=\"chip good sentimentFilter\" type=\"button\" data-sentiment=\"positive\">\n        Positiv: ${sentimentCounts.positive}\n      </button>\n      <button class=\"chip info sentimentFilter\" type=\"button\" data-sentiment=\"neutral\">\n        Neutral: ${sentimentCounts.neutral}\n      </button>\n      <button class=\"chip bad sentimentFilter\" type=\"button\" data-sentiment=\"negative\">\n        Negativ: ${sentimentCounts.negative}\n      </button>\n      ${sentimentCounts.other ? `<span class=\"chip\">Sonstige: ${sentimentCounts.other}</span>` : \"\"}\n    </div>\n  </div>\n</section>`;\n\nconst categoryCard = `\n<section class=\"sideCard\">\n  <div class=\"sideCardTitle\">Kategorie Überblick</div>\n  <div class=\"categorySummary\">\n    <div\n      class=\"categoryDonut\"\n      style=\"--category-gradient:${categoryGradient};\"\n      aria-label=\"Kategorie Verteilung\"\n      role=\"img\"\n    >\n      <div class=\"categoryDonutInner\">${categoryTotal}</div>\n    </div>\n    <div class=\"categoryLegend\">\n      ${categories\n        .map(category => {\n          const count = categoryCounts[category] || 0;\n          return `<button class=\"chip categoryFilter\" type=\"button\" data-category=\"${esc(\n            category\n          )}\">${esc(category)}: ${count}</button>`;\n        })\n        .join(\"\")}\n    </div>\n  </div>\n</section>`;\n\nconst sourceCard = `\n<section class=\"sideCard\">\n  <div class=\"sideCardTitle\">Quelle Überblick</div>\n  <div class=\"sourceSummary\">\n    <div\n      class=\"sourceDonut\"\n      style=\"--source-gradient:${sourceGradient};\"\n      aria-label=\"Quelle Verteilung\"\n      role=\"img\"\n    >\n      <div class=\"sourceDonutInner\">${sourceTotal}</div>\n    </div>\n    <div class=\"sourceLegend\">\n      ${sources\n        .map(source => {\n          const count = sourceCounts[source] || 0;\n          return `<button class=\"chip sourceFilter\" type=\"button\" data-source=\"${esc(\n            source\n          )}\">${esc(source)}: ${count}</button>`;\n        })\n        .join(\"\")}\n    </div>\n  </div>\n</section>`;\n\nconst relevanceCard = `\n<section class=\"sideCard\">\n  <div class=\"sideCardTitle\">Relevanz Überblick</div>\n  <div class=\"relevanceSummary\">\n    <div\n      class=\"relevanceDonut\"\n      style=\"--relevance-gradient:${relevanceGradient};\"\n      aria-label=\"Relevanz Verteilung\"\n      role=\"img\"\n    >\n      <div class=\"relevanceDonutInner\">${relevanceTotal}</div>\n    </div>\n    <div class=\"relevanceLegend\">\n      ${relevanceLevels\n        .map(level => {\n          const count = relevanceCounts[level] || 0;\n          const label = level === 5 ? \"5\" : `≥ ${level}`;\n          return `<button class=\"chip relevanceFilter\" type=\"button\" data-relevance=\"${level}\">\n            Relevanz ${label}: ${count}\n          </button>`;\n        })\n        .join(\"\")}\n    </div>\n  </div>\n</section>`;\n\nconst placeholderCard = `\n<section class=\"sideCard\">\n  <div class=\"sideCardTitle\">Weitere Insights</div>\n  <p class=\"sideCardText\">Hier kannst du später weitere KPIs, Trends oder Alerts anzeigen.</p>\n</section>`;\n\n// ---------- HTML ----------\nconst html = `<!doctype html>\n<html lang=\"de\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>News Dashboard</title>\n\n<style>\n:root{\n  --bg:#0b1020;\n  --card:#111a33;\n  --text:#eef2ff;\n  --muted:#9aa7c7;\n  --border:rgba(255,255,255,.08);\n\n  --good:#22c55e;\n  --bad:#ef4444;\n  --warn:#f59e0b;\n  --info:#60a5fa;\n}\n\n*{box-sizing:border-box}\n\nbody{\n  margin:0;\n  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;\n  background:\n    radial-gradient(1200px 600px at 20% 0%, rgba(96,165,250,.18), transparent 60%),\n    radial-gradient(900px 500px at 80% 10%, rgba(239,68,68,.10), transparent 55%),\n    var(--bg);\n  color:var(--text);\n}\n\n.wrap{\n  width:100%;\n  max-width:none;\n  margin:0;\n  padding:24px 28px;\n}\n\n.hero{\n  display:flex;\n  flex-direction:column;\n  gap:6px;\n}\n\n.titleHero{\n  margin:0;\n  font-size:28px;\n  font-weight:700;\n  letter-spacing:.2px;\n  background:linear-gradient(90deg, #e2e8f0, #60a5fa 50%, #38bdf8);\n  -webkit-background-clip:text;\n  background-clip:text;\n  color:transparent;\n}\n\n.heroSubtitle{\n  margin:0;\n  color:var(--muted);\n  font-size:13px;\n}\n\n.filters{\n  margin-top:14px;\n  padding:12px;\n  border-radius:16px;\n  border:1px solid var(--border);\n  background:rgba(255,255,255,.04);\n}\n\n.filtersRow{\n  display:flex;\n  gap:10px;\n  flex-wrap:wrap;\n  align-items:end;\n}\n\n.f{\n  display:flex;\n  flex-direction:column;\n  gap:6px;\n  font-size:12px;\n  color:var(--muted);\n}\n\n.f select{\n  height:34px;\n  padding:0 10px;\n  border-radius:12px;\n  border:1px solid var(--border);\n  background:rgba(17,26,51,.65);\n  color:var(--text);\n  outline:none;\n  min-width:170px;\n}\n\n.filtersMeta{\n  margin-top:10px;\n  color:var(--muted);\n  font-size:12px;\n}\n\n.layout{\n  margin-top:16px;\n  display:grid;\n  grid-template-columns:minmax(240px, 320px) minmax(0, 1fr);\n  gap:16px;\n  align-items:start;\n}\n\n.sidebar{\n  display:flex;\n  flex-direction:column;\n  gap:14px;\n  position:sticky;\n  top:18px;\n  align-self:start;\n}\n\n.content{\n  min-width:0;\n}\n\n.sideCard{\n  background:rgba(17,26,51,.72);\n  border:1px solid var(--border);\n  border-radius:16px;\n  padding:14px;\n}\n\n.sideCardTitle{\n  font-size:13px;\n  letter-spacing:.2px;\n  color:var(--muted);\n  margin-bottom:10px;\n}\n\n.sideCardText{\n  margin:0;\n  font-size:13px;\n  color:rgba(238,242,255,.9);\n}\n\n.sentimentSummary{\n  display:flex;\n  flex-wrap:wrap;\n  gap:10px;\n  align-items:center;\n}\n\n.categorySummary{\n  display:flex;\n  flex-wrap:wrap;\n  gap:10px;\n  align-items:center;\n}\n\n.sourceSummary{\n  display:flex;\n  flex-wrap:wrap;\n  gap:10px;\n  align-items:center;\n}\n\n.relevanceSummary{\n  display:flex;\n  flex-wrap:wrap;\n  gap:10px;\n  align-items:center;\n}\n\n.sentimentLegend{\n  display:flex;\n  flex-wrap:wrap;\n  gap:6px;\n}\n\n.categoryLegend{\n  display:flex;\n  flex-wrap:wrap;\n  gap:6px;\n}\n\n.sourceLegend{\n  display:flex;\n  flex-wrap:wrap;\n  gap:6px;\n}\n\n.relevanceLegend{\n  display:flex;\n  flex-wrap:wrap;\n  gap:6px;\n}\n\n.categoryDonut{\n  --category-gradient:conic-gradient(rgba(255,255,255,.15) 0 100%);\n  width:54px;\n  height:54px;\n  border-radius:50%;\n  display:grid;\n  place-items:center;\n  background:var(--category-gradient);\n  box-shadow:\n    inset 0 0 0 1px rgba(255,255,255,.12),\n    0 8px 18px rgba(0,0,0,.35);\n}\n\n.categoryDonutInner{\n  width:34px;\n  height:34px;\n  border-radius:50%;\n  background:rgba(11,16,32,.95);\n  display:flex;\n  align-items:center;\n  justify-content:center;\n  font-size:11px;\n  color:var(--text);\n}\n\n.sourceDonut{\n  --source-gradient:conic-gradient(rgba(255,255,255,.15) 0 100%);\n  width:54px;\n  height:54px;\n  border-radius:50%;\n  display:grid;\n  place-items:center;\n  background:var(--source-gradient);\n  box-shadow:\n    inset 0 0 0 1px rgba(255,255,255,.12),\n    0 8px 18px rgba(0,0,0,.35);\n}\n\n.sourceDonutInner{\n  width:34px;\n  height:34px;\n  border-radius:50%;\n  background:rgba(11,16,32,.95);\n  display:flex;\n  align-items:center;\n  justify-content:center;\n  font-size:11px;\n  color:var(--text);\n}\n\n.relevanceDonut{\n  --relevance-gradient:conic-gradient(rgba(255,255,255,.15) 0 100%);\n  width:54px;\n  height:54px;\n  border-radius:50%;\n  display:grid;\n  place-items:center;\n  background:var(--relevance-gradient);\n  box-shadow:\n    inset 0 0 0 1px rgba(255,255,255,.12),\n    0 8px 18px rgba(0,0,0,.35);\n}\n\n.relevanceDonutInner{\n  width:34px;\n  height:34px;\n  border-radius:50%;\n  background:rgba(11,16,32,.95);\n  display:flex;\n  align-items:center;\n  justify-content:center;\n  font-size:11px;\n  color:var(--text);\n}\n.sentimentDonut{\n  --pos:0;\n  --neu:0;\n  --neg:0;\n  width:54px;\n  height:54px;\n  border-radius:50%;\n  display:grid;\n  place-items:center;\n  background:\n    conic-gradient(\n      var(--good) 0 calc(var(--pos) * 1%),\n      var(--info) calc(var(--pos) * 1%) calc((var(--pos) + var(--neu)) * 1%),\n      var(--bad) calc((var(--pos) + var(--neu)) * 1%) 100%\n    );\n  box-shadow:\n    inset 0 0 0 1px rgba(255,255,255,.12),\n    0 8px 18px rgba(0,0,0,.35);\n}\n\n.sentimentDonutInner{\n  width:34px;\n  height:34px;\n  border-radius:50%;\n  background:rgba(11,16,32,.95);\n  display:flex;\n  align-items:center;\n  justify-content:center;\n  font-size:11px;\n  color:var(--text);\n}\n\n.topHits{\n  margin-top:16px;\n  padding:12px;\n  border-radius:16px;\n  border:1px solid var(--border);\n  background:rgba(255,255,255,.03);\n}\n\n.topHitsHead{\n  display:flex;\n  align-items:baseline;\n  justify-content:space-between;\n  gap:12px;\n  padding:4px 2px 10px;\n}\n\n.topHitsHead h2{\n  margin:0;\n  font-size:14px;\n  letter-spacing:.2px;\n}\n\n.topHitsMeta{\n  color:var(--muted);\n  font-size:12px;\n}\n\n.topHitsGrid{\n  display:grid;\n  grid-template-columns:repeat(3,minmax(0,1fr));\n  gap:14px;\n  align-items:start;\n}\n\n.grid{\n  margin-top:16px;\n  column-count:3;\n  column-gap:14px;\n}\n\n.card{\n  position:relative;\n  background:rgba(17,26,51,.72);\n  border:1px solid var(--border);\n  border-radius:16px;\n  padding:14px;\n  transition: opacity .15s ease, filter .15s ease;\n  break-inside:avoid;\n  margin:0 0 14px;\n}\n\n/* Zeitliches Ausblenden */\n.card.old-24{\n  opacity:.75;\n}\n.card.old-48{\n  opacity:.45;\n  filter: grayscale(.15);\n}\n.card.old-48:hover{\n  opacity:.65;\n  filter:none;\n}\n\n.card.alert::before{\n  content:\"\";\n  position:absolute;\n  left:0;\n  top:0;\n  bottom:0;\n  width:6px;\n  border-radius:16px 0 0 16px;\n  background:linear-gradient(\n    180deg,\n    rgba(239,68,68,.95),\n    rgba(239,68,68,.65)\n  );\n}\n\n.card.isAssetHit::before{\n  content:\"\";\n  position:absolute;\n  left:0;\n  top:0;\n  bottom:0;\n  width:6px;\n  border-radius:16px 0 0 16px;\n  background:linear-gradient(\n    180deg,\n    rgba(96,165,250,.95),\n    rgba(34,211,238,.65)\n  );\n}\n\n.card.alert{\n  box-shadow:\n    0 0 0 1px rgba(239,68,68,.45),\n    0 0 18px rgba(239,68,68,.22),\n    0 14px 30px rgba(0,0,0,.45);\n}\n\n.card.isAssetHit{\n  box-shadow:\n    0 0 0 1px rgba(96,165,250,.35),\n    0 12px 26px rgba(56,189,248,.18);\n}\n\n.title{\n  margin:0;\n  font-size:15px;\n  font-weight:650;\n  line-height:1.25;\n}\n\n.meta{\n  margin-top:6px;\n  color:var(--muted);\n  font-size:12px;\n  display:flex;\n  gap:10px;\n  flex-wrap:wrap;\n}\n\n.chips{\n  display:flex;\n  gap:6px;\n  flex-wrap:wrap;\n  margin-top:10px;\n}\n\n.chip{\n  font-size:11px;\n  padding:4px 8px;\n  border-radius:999px;\n  background:rgba(255,255,255,.06);\n  border:1px solid var(--border);\n  white-space:nowrap;\n}\n\n.chip.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}\n.chip.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.14)}\n.chip.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}\n.chip.info{border-color:rgba(96,165,250,.35);background:rgba(96,165,250,.14)}\n\n.chip.assetHit{\n  border-color:rgba(96,165,250,.45);\n  background:rgba(96,165,250,.12);\n}\n\n.chip.sentimentFilter{\n  color:var(--text);\n  cursor:pointer;\n}\n\n.chip.categoryFilter{\n  color:var(--text);\n  cursor:pointer;\n}\n\n.chip.sourceFilter{\n  color:var(--text);\n  cursor:pointer;\n}\n\n.chip.relevanceFilter{\n  color:var(--text);\n  cursor:pointer;\n}\n\n.chip.sentimentFilter.active{\n  box-shadow:0 0 0 1px rgba(255,255,255,.2), 0 10px 20px rgba(0,0,0,.25);\n  filter:brightness(1.08);\n}\n\n.chip.categoryFilter.active{\n  box-shadow:0 0 0 1px rgba(255,255,255,.2), 0 10px 20px rgba(0,0,0,.25);\n  filter:brightness(1.08);\n}\n\n.chip.sourceFilter.active{\n  box-shadow:0 0 0 1px rgba(255,255,255,.2), 0 10px 20px rgba(0,0,0,.25);\n  filter:brightness(1.08);\n}\n\n.chip.relevanceFilter.active{\n  box-shadow:0 0 0 1px rgba(255,255,255,.2), 0 10px 20px rgba(0,0,0,.25);\n  filter:brightness(1.08);\n}\n\n.assetLine{\n  margin-top:10px;\n  color:rgba(238,242,255,.88);\n  font-size:12px;\n}\n.assetLine .label{\n  color:var(--muted);\n}\n\n.text{\n  margin:10px 0 0;\n  font-size:13px;\n  line-height:1.45;\n  color:rgba(238,242,255,.9);\n}\n\n.text.muted{color:rgba(154,167,199,.95)}\n\n.commentary{\n  white-space:normal;\n  overflow:visible;\n  max-height:none;\n}\n\n.commentary.collapsed{\n  display:none;\n}\n\n.footer{margin-top:12px}\n\na.btn, button.btn{\n  display:inline-flex;\n  align-items:center;\n  justify-content:center;\n  padding:8px 10px;\n  border-radius:12px;\n  border:1px solid var(--border);\n  background:rgba(255,255,255,.06);\n  color:var(--text);\n  text-decoration:none;\n  font-size:12px;\n  cursor:pointer;\n}\n\na.btn:hover, button.btn:hover{filter:brightness(1.05)}\n\nbutton.btn.ghost{\n  background:transparent;\n}\n\n@media(max-width:1200px){\n  .layout{grid-template-columns:1fr}\n  .grid{column-count:2}\n  .topHitsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}\n}\n@media(max-width:900px){\n  .grid{column-count:1}\n  .topHitsGrid{grid-template-columns:1fr}\n  .wrap{padding:18px}\n}\n</style>\n</head>\n\n<body>\n<div class=\"wrap\">\n  <header class=\"hero\">\n    <h1 class=\"titleHero\">News Dashboard</h1>\n    <p class=\"heroSubtitle\">Live-Marktnachrichten, Insights und Filter auf einen Blick.</p>\n  </header>\n\n  ${filterBar}\n\n  <div class=\"layout\">\n    <aside class=\"sidebar\">\n      ${sentimentCard}\n      ${categoryCard}\n      ${sourceCard}\n      ${relevanceCard}\n      ${placeholderCard}\n    </aside>\n    <main class=\"content\">\n      ${topHitsHtml}\n\n      <section class=\"grid\" id=\"grid\">\n        ${cardsHtml || `<div style=\"color:var(--muted)\">Keine Meldungen vorhanden.</div>`}\n      </section>\n    </main>\n  </div>\n</div>\n\n<script>\n(function(){\n  const reset = document.getElementById(\"reset\");\n  const shownEl = document.getElementById(\"countShown\");\n  const sentimentButtons = Array.from(document.querySelectorAll(\".sentimentFilter\"));\n  const categoryButtons = Array.from(document.querySelectorAll(\".categoryFilter\"));\n  const sourceButtons = Array.from(document.querySelectorAll(\".sourceFilter\"));\n  const relevanceButtons = Array.from(document.querySelectorAll(\".relevanceFilter\"));\n\n  const cards = Array.from(document.querySelectorAll(\"#grid .card\"));\n  let sentimentFilter = \"all\";\n  let categoryFilter = \"all\";\n  let sourceFilter = \"all\";\n  let relevanceFilter = \"all\";\n\n  function apply(){\n    const pv = sourceFilter;\n\n    let shown = 0;\n\n    for(const card of cards){\n      const r = Number(card.dataset.relevance || 0);\n      const c = card.dataset.category || \"\";\n      const s = card.dataset.sentiment || \"\";\n      const p = card.dataset.source || \"\";\n      const relOk = (relevanceFilter === \"all\" || r >= Number(relevanceFilter));\n      const catOk = (categoryFilter === \"all\" || c === categoryFilter);\n      const sentOk = (sentimentFilter === \"all\" || s === sentimentFilter);\n      const srcOk  = (pv === \"all\" || p === pv);\n      const ok = relOk && catOk && sentOk && srcOk;\n\n      card.style.display = ok ? \"\" : \"none\";\n      if(ok) shown++;\n    }\n\n    shownEl.textContent = String(shown);\n  }\n\n  function resetAll(){\n    sentimentFilter = \"all\";\n    categoryFilter = \"all\";\n    sourceFilter = \"all\";\n    relevanceFilter = \"all\";\n    sentimentButtons.forEach(button => button.classList.remove(\"active\"));\n    categoryButtons.forEach(button => button.classList.remove(\"active\"));\n    sourceButtons.forEach(button => button.classList.remove(\"active\"));\n    relevanceButtons.forEach(button => button.classList.remove(\"active\"));\n    apply();\n  }\n\n  reset.addEventListener(\"click\", resetAll);\n  sentimentButtons.forEach(button => {\n    button.addEventListener(\"click\", () => {\n      const next = button.dataset.sentiment || \"all\";\n      sentimentFilter = sentimentFilter === next ? \"all\" : next;\n      sentimentButtons.forEach(item => item.classList.toggle(\"active\", item.dataset.sentiment === sentimentFilter));\n      apply();\n    });\n  });\n  categoryButtons.forEach(button => {\n    button.addEventListener(\"click\", () => {\n      const next = button.dataset.category || \"all\";\n      categoryFilter = categoryFilter === next ? \"all\" : next;\n      categoryButtons.forEach(item => item.classList.toggle(\"active\", item.dataset.category === categoryFilter));\n      apply();\n    });\n  });\n  sourceButtons.forEach(button => {\n    button.addEventListener(\"click\", () => {\n      const next = button.dataset.source || \"all\";\n      sourceFilter = sourceFilter === next ? \"all\" : next;\n      sourceButtons.forEach(item => item.classList.toggle(\"active\", item.dataset.source === sourceFilter));\n      apply();\n    });\n  });\n  relevanceButtons.forEach(button => {\n    button.addEventListener(\"click\", () => {\n      const next = button.dataset.relevance || \"all\";\n      relevanceFilter = relevanceFilter === next ? \"all\" : next;\n      relevanceButtons.forEach(item => item.classList.toggle(\"active\", item.dataset.relevance === relevanceFilter));\n      apply();\n    });\n  });\n  document.addEventListener(\"click\", event => {\n    const toggle = event.target.closest(\".toggleCommentary\");\n    if (!toggle) return;\n    const card = toggle.closest(\".card\");\n    if (!card) return;\n    const commentary = card.querySelector(\".commentary\");\n    if (!commentary) return;\n    const isCollapsed = toggle.dataset.state !== \"expanded\";\n    commentary.classList.toggle(\"collapsed\", !isCollapsed);\n    toggle.dataset.state = isCollapsed ? \"expanded\" : \"collapsed\";\n    toggle.textContent = isCollapsed ? \"Einschätzung ausblenden\" : \"Einschätzung\";\n  });\n\n  // initial\n  apply();\n})();\n</script>\n\n</body>\n</html>`;\n\nreturn [{ json: { html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2896,
+        160
+      ],
+      "id": "3d142731-dda7-483f-b0a9-8c91ac216bc7",
+      "name": "To Html"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction norm(s){ return String(s ?? \"\").trim().toUpperCase(); }\n\nfunction escapeRegExp(str) {\n  return str.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n}\n\nfunction uniq(arr){\n  return Array.from(new Set(arr));\n}\n\nreturn items.map(({ json }) => {\n  const lookup = json.asset_lookup?.byAny ?? {};\n  const hay = norm([json.title, json.text].filter(Boolean).join(\" \"));\n\n  const hits = [];\n\n  // 1) ISINs im Text finden\n  const isinRegex = /\\b[A-Z]{2}[A-Z0-9]{10}\\b/g;\n  const foundIsins = hay.match(isinRegex) ?? [];\n  for (const isin of foundIsins) {\n    const v = lookup[norm(isin)];\n    if (v?.asset_id) hits.push(v.asset_id);\n  }\n\n  // 2) Ticker/Asset-IDs matchen (aber nur sinnvolle Keys)\n  const keys = Object.keys(lookup);\n\n  for (const kRaw of keys) {\n    const k = norm(kRaw);\n    if (!k) continue;\n\n    // Skip ISINs (haben wir schon)\n    if (/^[A-Z]{2}[A-Z0-9]{10}$/.test(k)) continue;\n\n    // Skip super kurze / riskante Tokens (1 Zeichen immer raus)\n    if (k.length <= 1) continue;\n\n    // Mindestlänge 3 (empfohlen)\n    if (k.length < 3) continue;\n\n    const v = lookup[k];\n    if (!v?.asset_id) continue;\n\n    // Word boundary match\n    const re = new RegExp(`\\\\b${escapeRegExp(k)}\\\\b`, \"i\");\n    if (re.test(hay)) hits.push(v.asset_id);\n  }\n\n  // Dedup + optional stabilisieren + max 5\n  const asset_hits = uniq(hits).sort().slice(0, 5);\n\n  // asset_lookup entfernen, aber rest behalten\n  const { asset_lookup, ...rest } = json;\n\n  return {\n    json: {\n      ...rest,\n      asset_hit: asset_hits.length > 0,\n      asset_hits\n    }\n  };\n});\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        -32
+      ],
+      "id": "4a3c66c3-43c7-4649-ab09-b22e76055a09",
+      "name": "Assettreffer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  if (item.json.asset_lookup) {\n    delete item.json.asset_lookup.byAny;\n\n    // optional: wenn danach leer → ganz löschen\n    if (Object.keys(item.json.asset_lookup).length === 0) {\n      delete item.json.asset_lookup;\n    }\n  }\n  return item;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        160
+      ],
+      "id": "328c686b-8632-42db-97c9-6bcd011b0d5d",
+      "name": "asset_lookup entfernen"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node – Zeitfilter + Dedupe + Normalisierung in einem Schritt\n\nconst hours = 48;\nconst cutoff = Date.now() - hours * 3600 * 1000;\n\nconst stripHtml = (html = \"\") =>\n  html\n    .replace(/<script[\\s\\S]*?>[\\s\\S]*?<\\/script>/gi, \" \")\n    .replace(/<style[\\s\\S]*?>[\\s\\S]*?<\\/style>/gi, \" \")\n    .replace(/<[^>]+>/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n\nconst getSource = item =>\n  item.json.source ||\n  item.json.feedTitle ||\n  item.json.meta?.title ||\n  item.json.feed?.title ||\n  (item.json.link?.includes(\"suredividend.com\") ? \"SureDividend\" : null) ||\n  (item.json.link?.includes(\"finanzen.net\") ? \"finanzen.net\" : null) ||\n  (item.json.link?.includes(\"finanznachrichten.de\") ? \"finanznachrichten.de\" : null) ||\n  (item.json.link?.includes(\"investor.spglobal.com\") ? \"S&P Global IR\" : null) ||\n  \"Unbekannte Quelle\";\n\nconst toIso = d => {\n  const dt = d ? new Date(d) : null;\n  return dt && !isNaN(dt) ? dt.toISOString() : null;\n};\n\nconst normalize = s =>\n  (s ?? \"\")\n    .toLowerCase()\n    .replace(\n      /\\b(dpa[- ]afx|analyser|research|stuft|stufen|bewertet|kursziel|fairer wert|auf|von|bei)\\b/g,\n      \" \"\n    )\n    .replace(/\\b(overweight|underweight|equal weight|hold|buy|sell|kaufen)\\b/g, \" \")\n    .replace(\n      /\\b(deutsche bank|jpmorgan|jp morgan|ubs|goldman sachs|jefferies|barclays|berenberg|dz bank)\\b/g,\n      \" \"\n    )\n    .replace(/[^a-z0-9]+/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n\nconst dayKey = iso => {\n  if (!iso) return \"\";\n  const d = new Date(iso);\n  if (isNaN(d)) return \"\";\n  return d.toISOString().slice(0, 10);\n};\n\nconst seenLinkOrTitle = new Set();\nconst seenFingerprints = new Set();\nconst out = [];\n\nfor (const item of items) {\n  const title = (item.json.title || \"\").trim();\n  const link = (item.json.link || item.json.url || \"\").trim();\n  if (!title && !link) continue;\n\n  const dedupeKey = link || title.toLowerCase();\n  if (seenLinkOrTitle.has(dedupeKey)) continue;\n\n  const isoDate = toIso(item.json.isoDate || item.json.pubDate || item.json.date);\n  const timestamp = isoDate ? new Date(isoDate).getTime() : 0;\n  if (!Number.isFinite(timestamp) || timestamp < cutoff) continue;\n\n  seenLinkOrTitle.add(dedupeKey);\n\n  const category = item.json.category ?? \"\";\n  const tickers = Array.isArray(item.json.tickers) ? item.json.tickers.slice().sort().join(\",\") : \"\";\n  const tNorm = normalize(item.json.title);\n  const date = dayKey(isoDate);\n\n  const key = `${date}::${category}::${tickers}::${tNorm}`;\n\n  if (!seenFingerprints.has(key)) {\n    seenFingerprints.add(key);\n    const snippet = item.json.contentSnippet || item.json.summary || \"\";\n    const content = item.json.content || item.json.description || \"\";\n    const text = stripHtml(snippet || content);\n\n    out.push({\n      json: {\n        title,\n        link,\n        date: isoDate,\n        source: getSource(item),\n        text,\n        hasText: Boolean(text && text.length > 30),\n        rawType: item.json.categories?.[0] || null,\n        category: item.json.category ?? null,\n        tickers: Array.isArray(item.json.tickers) ? item.json.tickers : null\n      }\n    });\n  }\n}\n\nout.sort((a, b) => (b.json.date || \"\").localeCompare(a.json.date || \"\"));\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        0
+      ],
+      "id": "4ca04c72-dd61-4f18-a90e-9cb15a3d70cd",
+      "name": "Zeitfilter+Dedup+Normalisieren"
+    },
+    {
+      "parameters": {
+        "jsCode": "// nimmt alle eingehenden Items und packt sie in EIN einziges Item\nreturn [\n  {\n    json: {\n      items: $input.all().map(i => i.json)\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        160
+      ],
+      "id": "5c8f04d9-3e4a-41df-9061-29f3b0c41806",
+      "name": "Many Items to One Item"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS S&P 500",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Analysen Finanzen.net",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "100 DIvidenden RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aktuelle Kaufempfehlungen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ad-hoc Meldungen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Allianz RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Assetliste",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS S&P 500": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Analysen Finanzen.net": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "100 DIvidenden RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aktuelle Kaufempfehlungen": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "ad-hoc Meldungen": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Zeitfilter+Dedup+Normalisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Many Items to One Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "FTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Allianz RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assetliste": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript6": {
+      "main": [
+        [
+          {
+            "node": "Assettreffer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "asset_lookup entfernen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To Html": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assettreffer": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asset_lookup entfernen": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Zeitfilter+Dedup+Normalisieren": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zeitfilter+Dedup": {
+      "main": [
+        [
+          {
+            "node": "Dedup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Many Items to One Item": {
+      "main": [
+        [
+          {
+            "node": "To Html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "31fa7cb6-96e3-41f3-a086-d28bc3bf9b45",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8661e7914bf35cd1bee2d00f82a6e7a322d735ffb19843a86da7147fa322e63b"
+  },
+  "id": "HqnVNFF87BvjJChGdkMdO",
+  "tags": []
+}
