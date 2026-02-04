@@ -202,7 +202,7 @@ const topHitsMetaLabel = ignoreTopHitsRelevance
   : `Relevanz ≥ ${TOP_HITS_MIN_RELEVANCE}`;
 
 // ---------- Cards Renderer ----------
-function renderCard(n) {
+function renderCard(n, { disableAgeDim = false } = {}) {
   const rel = Number(n.relevance ?? 0);
   const sent = String(n.sentiment || "unknown").toLowerCase();
   const cat = String(n.category || "other");
@@ -233,9 +233,11 @@ function renderCard(n) {
   })();
 
   let ageClass = "";
-  if (ageHours >= AGE_DIM_3_HOURS) ageClass = "old-7d";
-  else if (ageHours >= AGE_DIM_2_HOURS) ageClass = "old-38";
-  else if (ageHours >= AGE_DIM_1_HOURS) ageClass = "old-18";
+  if (!disableAgeDim) {
+    if (ageHours >= AGE_DIM_3_HOURS) ageClass = "old-7d";
+    else if (ageHours >= AGE_DIM_2_HOURS) ageClass = "old-38";
+    else if (ageHours >= AGE_DIM_1_HOURS) ageClass = "old-18";
+  }
 
   const chips = [
     isAssetHit ? `<span class="chip assetHit">🎯 Asset-Hit</span>` : "",
@@ -306,7 +308,10 @@ function renderCard(n) {
 
 // ---------- Main Cards ----------
 const topHitSet = new Set(topHits);
-const cardsHtml = items.filter(n => !topHitSet.has(n)).map(n => renderCard(n)).join("");
+const cardsHtml = items
+  .filter(n => !topHitSet.has(n))
+  .map(n => renderCard(n))
+  .join("");
 
 // ---------- Top Hits Block ----------
 const topHitsHtml = topHitsCount
@@ -317,7 +322,7 @@ const topHitsHtml = topHitsCount
       <div class="topHitsMeta">${topHits.length} von ${topHitsCount} Treffern (${topHitsMetaLabel})</div>
     </div>
     <div class="topHitsGrid">
-      ${topHits.map(n => renderCard(n)).join("")}
+      ${topHits.map(n => renderCard(n, { disableAgeDim: true })).join("")}
     </div>
   </section>
   `
