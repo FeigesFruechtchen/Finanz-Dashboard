@@ -92,7 +92,9 @@ items.sort((a, b) => {
   const cB = CATEGORY_PRIORITY[b.category] ?? 99;
   if (cA !== cB) return cA - cB;
 
-  return new Date(b.date) - new Date(a.date);
+  const bDate = new Date(b.published_at ?? b.first_seen ?? b.date);
+  const aDate = new Date(a.published_at ?? a.first_seen ?? a.date);
+  return bDate - aDate;
 });
 
 // ---------- Filter-Optionen dynamisch ----------
@@ -284,7 +286,7 @@ function renderCard(n) {
     <div class="meta">
       <span>${esc(src || "unknown")}</span>
       <span>•</span>
-      <span>${fmtDate(n.date)}</span>
+      <span>${fmtDate(n.published_at ?? n.first_seen)}</span>
     </div>
 
     <div class="chips">${chips}</div>
