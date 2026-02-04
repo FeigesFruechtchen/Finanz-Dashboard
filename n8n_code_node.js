@@ -72,8 +72,8 @@ const CATEGORY_PRIORITY = {
 const TOP_HITS_MIN_RELEVANCE = 2; // ab hier kommen Asset-Hits in den Top-Block
 const TOP_HITS_MAX_ITEMS = 6; // max Cards im Top-Block
 // Zeitliches Ausblenden (nur visuell)
-const AGE_DIM_1_HOURS = 24; // ab 24h leicht ausgrauen
-const AGE_DIM_2_HOURS = 48; // ab 48h stark ausgrauen
+const AGE_DIM_1_HOURS = 18; // ab 18h leicht ausgrauen
+const AGE_DIM_2_HOURS = 38; // ab 38h stark ausgrauen
 
 // ---------- Input ----------
 const input = $input.first().json || {};
@@ -224,8 +224,8 @@ function renderCard(n) {
   })();
 
   let ageClass = "";
-  if (ageHours >= AGE_DIM_2_HOURS) ageClass = "old-48";
-  else if (ageHours >= AGE_DIM_1_HOURS) ageClass = "old-24";
+  if (ageHours >= AGE_DIM_2_HOURS) ageClass = "old-38";
+  else if (ageHours >= AGE_DIM_1_HOURS) ageClass = "old-18";
 
   const chips = [
     isAssetHit ? `<span class="chip assetHit">🎯 Asset-Hit</span>` : "",
@@ -294,7 +294,8 @@ function renderCard(n) {
 }
 
 // ---------- Main Cards ----------
-const cardsHtml = items.map(n => renderCard(n)).join("");
+const topHitSet = new Set(topHits);
+const cardsHtml = items.filter(n => !topHitSet.has(n)).map(n => renderCard(n)).join("");
 
 // ---------- Top Hits Block ----------
 const topHitsHtml = topHitsCount
@@ -791,14 +792,14 @@ body{
 }
 
 /* Zeitliches Ausblenden */
-.card.old-24{
+.card.old-18{
   opacity:.75;
 }
-.card.old-48{
+.card.old-38{
   opacity:.45;
   filter: grayscale(.15);
 }
-.card.old-48:hover{
+.card.old-38:hover{
   opacity:.65;
   filter:none;
 }
