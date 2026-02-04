@@ -19,6 +19,9 @@ Die Vorlage umfasst:
 Dateien
 -------
 - `n8n_code_node.js`: Der komplette Generator (HTML/CSS/JS) für das Dashboard.
+- `NEWS_DASHBOARD_ENHANCEMENTS.md`: Dokumentation zu geplanten/umgesetzten Erweiterungen am Dashboard.
+- `Finanzinfos.json`: Beispiel-Datensatz mit Finanz-/News-Items für lokale Tests und Demos.
+- `README.txt`: Diese Projektbeschreibung und Nutzungshinweise.
 
 Wie funktioniert die Code-Node?
 -------------------------------
