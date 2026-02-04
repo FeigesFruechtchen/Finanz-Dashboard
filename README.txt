@@ -19,6 +19,9 @@ Die Vorlage umfasst:
 Dateien
 -------
 - `n8n_code_node.js`: Der komplette Generator (HTML/CSS/JS) für das Dashboard.
+- `Node Zeitfilter+Dedup+Normalisieren.js`: Kombinierte Code-Node für Zeitfilter (48h),
+  Deduplizierung und Normalisierung der Items (inkl. HTML-Strip, Quellen-Detektion,
+  ISO-Datum und Textfeld für KI-Tagging).
 
 Wie funktioniert die Code-Node?
 -------------------------------
