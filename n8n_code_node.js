@@ -249,7 +249,8 @@ function renderCard(n) {
   const oneLiner = n.one_liner ? `<p class="text">${esc(n.one_liner)}</p>` : "";
   const commentaryText = n.commentary ? String(n.commentary) : "";
   const hasCommentary = commentaryText.length > 0;
-  const defaultExpanded = isAssetHit && rel >= TOP_HITS_MIN_RELEVANCE;
+  const defaultExpanded =
+    isAssetHit && (ignoreTopHitsRelevance || rel >= TOP_HITS_MIN_RELEVANCE);
   const commentaryClass = defaultExpanded ? "commentary" : "commentary collapsed";
   const commentary = hasCommentary
     ? `<p class="text muted ${commentaryClass}">${esc(commentaryText)}</p>`
