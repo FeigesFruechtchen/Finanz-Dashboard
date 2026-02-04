@@ -74,6 +74,7 @@ const TOP_HITS_MAX_ITEMS = 6; // max Cards im Top-Block
 // Zeitliches Ausblenden (nur visuell)
 const AGE_DIM_1_HOURS = 18; // ab 18h leicht ausgrauen
 const AGE_DIM_2_HOURS = 38; // ab 38h stark ausgrauen
+const AGE_DIM_3_HOURS = 168; // ab 7 Tagen sehr stark ausgrauen
 
 // ---------- Input ----------
 const input = $input.first().json || {};
@@ -91,7 +92,9 @@ items.sort((a, b) => {
   const cB = CATEGORY_PRIORITY[b.category] ?? 99;
   if (cA !== cB) return cA - cB;
 
-  return new Date(b.date) - new Date(a.date);
+  const bDate = new Date(b.published_at ?? b.first_seen ?? b.date);
+  const aDate = new Date(a.published_at ?? a.first_seen ?? a.date);
+  return bDate - aDate;
 });
 
 // ---------- Filter-Optionen dynamisch ----------
@@ -220,7 +223,8 @@ function renderCard(n) {
   // Zeitliches Ausblenden
   const ageHours = (() => {
     try {
-      const t = new Date(n.date).getTime();
+      const ageSource = n.published_at ?? n.first_seen;
+      const t = new Date(ageSource).getTime();
       if (!Number.isFinite(t)) return 0;
       return (Date.now() - t) / 36e5;
     } catch {
@@ -229,7 +233,8 @@ function renderCard(n) {
   })();
 
   let ageClass = "";
-  if (ageHours >= AGE_DIM_2_HOURS) ageClass = "old-38";
+  if (ageHours >= AGE_DIM_3_HOURS) ageClass = "old-7d";
+  else if (ageHours >= AGE_DIM_2_HOURS) ageClass = "old-38";
   else if (ageHours >= AGE_DIM_1_HOURS) ageClass = "old-18";
 
   const chips = [
@@ -281,7 +286,7 @@ function renderCard(n) {
     <div class="meta">
       <span>${esc(src || "unknown")}</span>
       <span>•</span>
-      <span>${fmtDate(n.date)}</span>
+      <span>${fmtDate(n.published_at ?? n.first_seen)}</span>
     </div>
 
     <div class="chips">${chips}</div>
@@ -808,6 +813,14 @@ body{
 .card.old-38:hover{
   opacity:.65;
   filter:none;
+}
+.card.old-7d{
+  opacity:.2;
+  filter: grayscale(.4);
+}
+.card.old-7d:hover{
+  opacity:.45;
+  filter: grayscale(.2);
 }
 
 .card.alert::before{
