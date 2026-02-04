@@ -294,7 +294,8 @@ function renderCard(n) {
 }
 
 // ---------- Main Cards ----------
-const cardsHtml = items.map(n => renderCard(n)).join("");
+const topHitSet = new Set(topHits);
+const cardsHtml = items.filter(n => !topHitSet.has(n)).map(n => renderCard(n)).join("");
 
 // ---------- Top Hits Block ----------
 const topHitsHtml = topHitsCount
