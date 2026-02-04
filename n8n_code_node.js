@@ -187,11 +187,16 @@ const sentimentParts = {
 };
 
 // ---------- Top Hits (deine Assets) ----------
-const topHitsAll = items.filter(n => {
-  return isExplicitTrue(n.asset_hit) && (Number(n.relevance) || 0) >= TOP_HITS_MIN_RELEVANCE;
-});
+const assetHitsAll = items.filter(n => isExplicitTrue(n.asset_hit));
+const ignoreTopHitsRelevance = assetHitsAll.length < TOP_HITS_MAX_ITEMS;
+const topHitsAll = ignoreTopHitsRelevance
+  ? assetHitsAll
+  : assetHitsAll.filter(n => (Number(n.relevance) || 0) >= TOP_HITS_MIN_RELEVANCE);
 const topHits = topHitsAll.slice(0, TOP_HITS_MAX_ITEMS);
 const topHitsCount = topHitsAll.length;
+const topHitsMetaLabel = ignoreTopHitsRelevance
+  ? "Relevanz ignoriert (weniger als 6 Treffer)"
+  : `Relevanz ≥ ${TOP_HITS_MIN_RELEVANCE}`;
 
 // ---------- Cards Renderer ----------
 function renderCard(n) {
@@ -303,7 +308,7 @@ const topHitsHtml = topHitsCount
   <section class="topHits">
     <div class="topHitsHead">
       <h2>Top Hits (deine Assets)</h2>
-      <div class="topHitsMeta">${topHits.length} von ${topHitsCount} Treffern (Relevanz ≥ ${TOP_HITS_MIN_RELEVANCE})</div>
+      <div class="topHitsMeta">${topHits.length} von ${topHitsCount} Treffern (${topHitsMetaLabel})</div>
     </div>
     <div class="topHitsGrid">
       ${topHits.map(n => renderCard(n)).join("")}
