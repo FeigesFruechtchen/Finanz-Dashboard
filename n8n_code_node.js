@@ -206,16 +206,18 @@ const sentimentParts = {
 
 // ---------- Top Hits (deine Assets) ----------
 const assetHitsAll = items.filter(n => isExplicitTrue(n.asset_hit));
-const ignoreTopHitsRelevance = assetHitsAll.length < TOP_HITS_MAX_ITEMS;
-const topHitsAll = ignoreTopHitsRelevance
-  ? assetHitsAll
-  : assetHitsAll.filter(n => (Number(n.relevance) || 0) >= TOP_HITS_MIN_RELEVANCE);
-topHitsAll.sort(sortByRelevanceCategoryDate);
+const applyTopHitsRelevance = assetHitsAll.length > TOP_HITS_MAX_ITEMS;
+const topHitsAll = assetHitsAll.slice();
+if (applyTopHitsRelevance) {
+  topHitsAll.sort(sortByRelevanceCategoryDate);
+} else {
+  topHitsAll.sort(sortByDateDesc);
+}
 const topHits = topHitsAll.slice(0, TOP_HITS_MAX_ITEMS);
-const topHitsCount = topHitsAll.length;
-const topHitsMetaLabel = ignoreTopHitsRelevance
-  ? "Relevanz ignoriert (weniger als 6 Treffer)"
-  : `Relevanz ≥ ${TOP_HITS_MIN_RELEVANCE}`;
+const topHitsCount = assetHitsAll.length;
+const topHitsMetaLabel = applyTopHitsRelevance
+  ? `Top ${TOP_HITS_MAX_ITEMS} nach Relevanz`
+  : "Relevanz ignoriert (max. 6 Treffer)";
 
 // ---------- Cards Renderer ----------
 function renderCard(n, { disableAgeDim = false } = {}) {
@@ -273,7 +275,7 @@ function renderCard(n, { disableAgeDim = false } = {}) {
   const commentaryText = n.commentary ? String(n.commentary) : "";
   const hasCommentary = commentaryText.length > 0;
   const defaultExpanded =
-    isAssetHit && (ignoreTopHitsRelevance || rel >= TOP_HITS_MIN_RELEVANCE);
+    isAssetHit && (!applyTopHitsRelevance || rel >= TOP_HITS_MIN_RELEVANCE);
   const commentaryClass = defaultExpanded ? "commentary" : "commentary collapsed";
   const commentary = hasCommentary
     ? `<p class="text muted ${commentaryClass}">${esc(commentaryText)}</p>`
@@ -815,8 +817,9 @@ body{
 
 .grid{
   margin-top:16px;
-  column-count:3;
-  column-gap:14px;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
 }
 
 .card{
@@ -826,8 +829,7 @@ body{
   border-radius:16px;
   padding:14px;
   transition: opacity .15s ease, filter .15s ease;
-  break-inside:avoid;
-  margin:0 0 14px;
+  margin:0;
 }
 
 /* Zeitliches Ausblenden */
@@ -1028,11 +1030,11 @@ button.btn.ghost{
 
 @media(max-width:1200px){
   .layout{grid-template-columns:1fr}
-  .grid{column-count:2}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .topHitsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:900px){
-  .grid{column-count:1}
+  .grid{grid-template-columns:1fr}
   .topHitsGrid{grid-template-columns:1fr}
   .wrap{padding:18px}
 }
