@@ -1,0 +1,220 @@
+Funktionsdokumentation – n8n Code Node
+=====================================
+
+Überblick
+--------
+Diese Datei beschreibt alle Funktionen aus `n8n_code_node.js` und erklärt
+kurz Zweck, Ein- und Ausgaben sowie besondere Logik. Die Aufzählung folgt
+ungefähr der Reihenfolge im Code und umfasst sowohl die Helper-Funktionen
+als auch die Funktionen im eingebetteten `<script>`-Block.
+
+Helper-Funktionen (Server/Node-Teil)
+-----------------------------------
+
+### `esc(s)`
+**Zweck:**
+Escaped HTML-Ausgabe, um Inhalte sicher als Text darzustellen.
+
+**Eingabe:**
+- `s`: Beliebiger Wert (String/Number/null/undefined).
+
+**Ausgabe:**
+- String mit ersetzten HTML-Sonderzeichen (`&`, `<`, `>`, `"`, `'`).
+
+**Besonderheiten:**
+- Nutzt `String(s ?? "")` für Null/Undefined-Schutz.
+
+---
+
+### `fmtDate(iso)`
+**Zweck:**
+Formatiert ein ISO-Datum für die Anzeige im Dashboard.
+
+**Eingabe:**
+- `iso`: ISO-Date-String (oder beliebiger Datums-Input).
+
+**Ausgabe:**
+- Lokalisierter String im Format `de-DE` (Datum + Uhrzeit).
+
+**Fallback:**
+- Bei Fehlern wird der Input als String zurückgegeben.
+
+---
+
+### `uniqSorted(arr)`
+**Zweck:**
+Filtert leere Werte heraus, entfernt Duplikate und sortiert die Werte.
+
+**Eingabe:**
+- `arr`: Array mit beliebigen Werten.
+
+**Ausgabe:**
+- Array mit eindeutigen, sortierten Strings.
+
+**Besonderheiten:**
+- Sortierung mit `localeCompare` (Locale: `de`).
+
+---
+
+### `hexToRgba(hex, alpha)`
+**Zweck:**
+Wandelt einen 6-stelligen Hex-Farbwert in `rgba(...)` um.
+
+**Eingabe:**
+- `hex`: Farbwert wie `#60a5fa` (oder ohne `#`).
+- `alpha`: Transparenzwert (0–1).
+
+**Ausgabe:**
+- String im Format `rgba(r,g,b,alpha)`.
+
+**Fallback:**
+- Wenn `hex` nicht 6-stellig ist, wird `rgba(255,255,255,alpha)` genutzt.
+
+---
+
+### `normalizeAssetHits(assetHits)`
+**Zweck:**
+Normalisiert Asset-Hits in ein einheitliches Array von Strings.
+
+**Eingabe:**
+- `assetHits`: Array, String (mit Trennzeichen `,;|`) oder sonstiger Wert.
+
+**Ausgabe:**
+- Array aus bereinigten Asset-Namen.
+
+**Besonderheiten:**
+- Entfernt leere Einträge und trimmt Strings.
+
+---
+
+### `isExplicitTrue(value)`
+**Zweck:**
+Erkennt verschiedene "true"-Darstellungen (Boolean, Zahl, String).
+
+**Eingabe:**
+- `value`: Boolean, Number oder String.
+
+**Ausgabe:**
+- `true` bei `true`, `1`, `"1"`, `"true"`, `"yes"`, `"y"` (case-insensitiv).
+- sonst `false`.
+
+---
+
+### `getAgeHours(item)`
+**Zweck:**
+Berechnet das Alter einer News in Stunden.
+
+**Eingabe:**
+- `item`: News-Objekt mit `published_at`, `first_seen` oder `date`.
+
+**Ausgabe:**
+- Zahl (Stunden seit Veröffentlichung).
+
+**Fallback:**
+- Bei Fehlern oder ungültigem Datum: `0`.
+
+---
+
+Sortierfunktionen
+-----------------
+
+### `sortByRelevanceCategoryDate(a, b)`
+**Zweck:**
+Sortiert News nach Relevanz (DESC), Kategorie-Priorität (ASC), Datum (DESC).
+
+**Eingabe:**
+- `a`, `b`: News-Objekte mit `relevance`, `category`, `published_at/first_seen/date`.
+
+**Ausgabe:**
+- Comparator-Return (`<0`, `0`, `>0`) für `Array.sort`.
+
+---
+
+### `sortByDateDesc(a, b)`
+**Zweck:**
+Sortiert News strikt nach Datum absteigend (neueste zuerst).
+
+**Eingabe:**
+- `a`, `b`: News-Objekte mit `published_at/first_seen/date`.
+
+**Ausgabe:**
+- Comparator-Return (`<0`, `0`, `>0`) für `Array.sort`.
+
+---
+
+Rendering-Funktion
+------------------
+
+### `renderCard(n, { disableAgeDim = false } = {})`
+**Zweck:**
+Erzeugt den kompletten HTML-Block für eine einzelne News-Karte.
+
+**Eingabe:**
+- `n`: News-Objekt.
+- `disableAgeDim`: Optionaler Flag, um altersabhängiges Ausgrauen zu deaktivieren.
+
+**Ausgabe:**
+- HTML-String eines `<article class="card">` inkl. Badges, Chips, Assets,
+  Texten und optionalem Kommentar-Block.
+
+**Besondere Logik:**
+- Relevanz- und Sentiment-Badge-Farben.
+- Asset-Hit-Status (Badge + Markierung).
+- Altersabhängiges Dimmen (`old-18`, `old-38`, `old-7d`).
+- Kommentare einklappbar, standardmäßig expandiert bei Asset-Hits.
+
+---
+
+Funktionen im Browser-Skript
+----------------------------
+
+### `(function(){ ... })()` (IIFE)
+**Zweck:**
+Kapselt die Filterlogik im Browser und initialisiert das UI.
+
+**Ausgabe:**
+- Keine direkte Ausgabe; arbeitet über DOM-Manipulation.
+
+---
+
+### `apply()`
+**Zweck:**
+Wendet die aktiven Filter auf alle News-Karten an.
+
+**Eingaben (über Closure):**
+- `sentimentFilter`, `categoryFilter`, `sourceFilter`, `relevanceFilter`.
+
+**Ausgabe:**
+- Keine Rückgabe; setzt `display` der Karten und aktualisiert Zähler.
+
+**Besonderheiten:**
+- Relevanzfilter interpretiert als Mindestwert (`r >= filter`).
+
+---
+
+### `resetAll()`
+**Zweck:**
+Setzt alle Filter auf "all" zurück und entfernt `active`-Klassen.
+
+**Ausgabe:**
+- Keine Rückgabe; ruft anschließend `apply()` auf.
+
+---
+
+Event-Handler (inline Funktionen)
+---------------------------------
+Diese Funktionen sind als Callback in `addEventListener` definiert und
+steuern die Interaktion:
+
+- **`reset`-Click-Handler:** Ruft `resetAll()` auf.
+- **`sentimentButtons`-Handler:** Toggelt Sentiment-Filter und ruft `apply()`.
+- **`categoryButtons`-Handler:** Toggelt Kategorie-Filter und ruft `apply()`.
+- **`sourceButtons`-Handler:** Toggelt Quellen-Filter und ruft `apply()`.
+- **`relevanceButtons`-Handler:** Toggelt Relevanz-Filter und ruft `apply()`.
+- **`document`-Click-Handler:** Toggelt die Anzeige der „Einschätzung“ pro Karte
+  und setzt Button-Text sowie `data-state`.
+
+Initialisierung
+---------------
+- Am Ende der IIFE wird `apply()` einmalig aufgerufen, um die Anzeige
+  sofort korrekt zu initialisieren.
