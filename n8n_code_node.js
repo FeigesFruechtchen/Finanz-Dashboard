@@ -60,6 +60,17 @@ function isExplicitTrue(value) {
   return false;
 }
 
+function getAgeHours(item) {
+  try {
+    const ageSource = item?.published_at ?? item?.first_seen ?? item?.date;
+    const t = new Date(ageSource).getTime();
+    if (!Number.isFinite(t)) return 0;
+    return (Date.now() - t) / 36e5;
+  } catch {
+    return 0;
+  }
+}
+
 // ---------- Kategorie-Priorität ----------
 const CATEGORY_PRIORITY = {
   adhoc: 1,
@@ -80,6 +91,7 @@ const CATEGORY_PRIORITY = {
 // ---------- Config ----------
 const TOP_HITS_MIN_RELEVANCE = 2; // ab hier kommen Asset-Hits in den Top-Block
 const TOP_HITS_MAX_ITEMS = 6; // max Cards im Top-Block
+const TOP_HITS_MAX_AGE_HOURS = 24; // Asset-Hits nur bis 24h im Top-Block
 // Zeitliches Ausblenden (nur visuell)
 const AGE_DIM_1_HOURS = 18; // ab 18h leicht ausgrauen
 const AGE_DIM_2_HOURS = 38; // ab 38h stark ausgrauen
@@ -206,18 +218,20 @@ const sentimentParts = {
 
 // ---------- Top Hits (deine Assets) ----------
 const assetHitsAll = items.filter(n => isExplicitTrue(n.asset_hit));
-const applyTopHitsRelevance = assetHitsAll.length > TOP_HITS_MAX_ITEMS;
-const topHitsAll = assetHitsAll.slice();
+const recentAssetHits = assetHitsAll.filter(n => getAgeHours(n) <= TOP_HITS_MAX_AGE_HOURS);
+const applyTopHitsRelevance = recentAssetHits.length > TOP_HITS_MAX_ITEMS;
+const topHitsAll = recentAssetHits.slice();
 if (applyTopHitsRelevance) {
   topHitsAll.sort(sortByRelevanceCategoryDate);
 } else {
   topHitsAll.sort(sortByDateDesc);
 }
-const topHits = topHitsAll.slice(0, TOP_HITS_MAX_ITEMS);
-const topHitsCount = assetHitsAll.length;
+const topHitsSelection = topHitsAll.slice(0, TOP_HITS_MAX_ITEMS);
+const topHits = topHitsSelection.slice().sort(sortByDateDesc);
+const topHitsCount = recentAssetHits.length;
 const topHitsMetaLabel = applyTopHitsRelevance
-  ? `Top ${TOP_HITS_MAX_ITEMS} nach Relevanz`
-  : "Relevanz ignoriert (max. 6 Treffer)";
+  ? `Top ${TOP_HITS_MAX_ITEMS} nach Relevanz (letzte 24h)`
+  : "Relevanz ignoriert (max. 6 Treffer, letzte 24h)";
 
 // ---------- Cards Renderer ----------
 function renderCard(n, { disableAgeDim = false } = {}) {
@@ -239,16 +253,7 @@ function renderCard(n, { disableAgeDim = false } = {}) {
     sent === "positive" ? "good" : sent === "negative" ? "bad" : sent === "mixed" ? "warn" : "info";
 
   // Zeitliches Ausblenden
-  const ageHours = (() => {
-    try {
-      const ageSource = n.published_at ?? n.first_seen;
-      const t = new Date(ageSource).getTime();
-      if (!Number.isFinite(t)) return 0;
-      return (Date.now() - t) / 36e5;
-    } catch {
-      return 0;
-    }
-  })();
+  const ageHours = getAgeHours(n);
 
   let ageClass = "";
   if (!disableAgeDim) {
