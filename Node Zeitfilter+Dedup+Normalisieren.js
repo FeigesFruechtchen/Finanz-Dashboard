@@ -50,6 +50,15 @@ const dayKey = iso => {
   return d.toISOString().slice(0, 10);
 };
 
+const getHost = link => {
+  if (!link) return "";
+  try {
+    return new URL(link).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
 const seenLinkOrTitle = new Set();
 const seenFingerprints = new Set();
 const out = [];
@@ -72,8 +81,10 @@ for (const item of items) {
   const tickers = Array.isArray(item.json.tickers) ? item.json.tickers.slice().sort().join(",") : "";
   const tNorm = normalize(item.json.title);
   const date = dayKey(isoDate);
+  const source = getSource(item);
+  const host = getHost(link) || source;
 
-  const key = `${date}::${category}::${tickers}::${tNorm}`;
+  const key = `${date}::${category}::${tickers}::${host}::${tNorm}`;
 
   if (!seenFingerprints.has(key)) {
     seenFingerprints.add(key);
@@ -86,7 +97,7 @@ for (const item of items) {
         title,
         link,
         date: isoDate,
-        source: getSource(item),
+        source,
         text,
         hasText: Boolean(text && text.length > 30),
         rawType: item.json.categories?.[0] || null,
