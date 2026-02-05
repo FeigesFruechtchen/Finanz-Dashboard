@@ -29,6 +29,15 @@ function uniqSorted(arr) {
   );
 }
 
+function hexToRgba(hex, alpha) {
+  const normalized = String(hex || "").replace("#", "");
+  if (normalized.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function normalizeAssetHits(assetHits) {
   if (Array.isArray(assetHits)) {
     return assetHits.filter(Boolean).map(String);
@@ -84,7 +93,7 @@ const items = Array.isArray(input.items) ? input.items.slice() : [];
 // 1. Relevanz DESC
 // 2. Kategorie ASC
 // 3. Datum DESC
-items.sort((a, b) => {
+const sortByRelevanceCategoryDate = (a, b) => {
   const r = (Number(b.relevance) || 0) - (Number(a.relevance) || 0);
   if (r !== 0) return r;
 
@@ -95,7 +104,13 @@ items.sort((a, b) => {
   const bDate = new Date(b.published_at ?? b.first_seen ?? b.date);
   const aDate = new Date(a.published_at ?? a.first_seen ?? a.date);
   return bDate - aDate;
-});
+};
+
+const sortByDateDesc = (a, b) => {
+  const bDate = new Date(b.published_at ?? b.first_seen ?? b.date);
+  const aDate = new Date(a.published_at ?? a.first_seen ?? a.date);
+  return bDate - aDate;
+};
 
 // ---------- Filter-Optionen dynamisch ----------
 const categories = uniqSorted(items.map(x => String(x.category || "other")));
@@ -195,6 +210,7 @@ const ignoreTopHitsRelevance = assetHitsAll.length < TOP_HITS_MAX_ITEMS;
 const topHitsAll = ignoreTopHitsRelevance
   ? assetHitsAll
   : assetHitsAll.filter(n => (Number(n.relevance) || 0) >= TOP_HITS_MIN_RELEVANCE);
+topHitsAll.sort(ignoreTopHitsRelevance ? sortByDateDesc : sortByRelevanceCategoryDate);
 const topHits = topHitsAll.slice(0, TOP_HITS_MAX_ITEMS);
 const topHitsCount = topHitsAll.length;
 const topHitsMetaLabel = ignoreTopHitsRelevance
@@ -310,6 +326,7 @@ function renderCard(n, { disableAgeDim = false } = {}) {
 const topHitSet = new Set(topHits);
 const cardsHtml = items
   .filter(n => !topHitSet.has(n))
+  .sort(sortByDateDesc)
   .map(n => renderCard(n))
   .join("");
 
@@ -337,7 +354,7 @@ const filterBar = `
 
   <div class="filtersMeta">
     <span id="countShown">0</span> von <span id="countAll">${items.length}</span> angezeigt
-    • Sortierung: Relevanz (DESC) → Kategorie → Datum
+    • Sortierung: Top Hits nach Relevanz (DESC) → Kategorie → Datum, Rest nach Datum (DESC)
     • Alert ab Relevanz ≥ 3
   </div>
 </div>`;
@@ -385,11 +402,14 @@ const categoryCard = `
     </div>
     <div class="categoryLegend">
       ${categories
-        .map(category => {
+        .map((category, index) => {
           const count = categoryCounts[category] || 0;
+          const color = categoryColors[index % categoryColors.length];
+          const bg = hexToRgba(color, 0.2);
+          const border = hexToRgba(color, 0.5);
           return `<button class="chip categoryFilter" type="button" data-category="${esc(
             category
-          )}">${esc(category)}: ${count}</button>`;
+          )}" style="background:${bg};border-color:${border};">${esc(category)}: ${count}</button>`;
         })
         .join("")}
     </div>
@@ -410,11 +430,14 @@ const sourceCard = `
     </div>
     <div class="sourceLegend">
       ${sources
-        .map(source => {
+        .map((source, index) => {
           const count = sourceCounts[source] || 0;
+          const color = categoryColors[index % categoryColors.length];
+          const bg = hexToRgba(color, 0.2);
+          const border = hexToRgba(color, 0.5);
           return `<button class="chip sourceFilter" type="button" data-source="${esc(
             source
-          )}">${esc(source)}: ${count}</button>`;
+          )}" style="background:${bg};border-color:${border};">${esc(source)}: ${count}</button>`;
         })
         .join("")}
     </div>
@@ -792,8 +815,9 @@ body{
 
 .grid{
   margin-top:16px;
-  column-count:3;
-  column-gap:14px;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:14px;
 }
 
 .card{
@@ -803,8 +827,6 @@ body{
   border-radius:16px;
   padding:14px;
   transition: opacity .15s ease, filter .15s ease;
-  break-inside:avoid;
-  margin:0 0 14px;
 }
 
 /* Zeitliches Ausblenden */
@@ -1005,11 +1027,11 @@ button.btn.ghost{
 
 @media(max-width:1200px){
   .layout{grid-template-columns:1fr}
-  .grid{column-count:2}
+  .grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
   .topHitsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:900px){
-  .grid{column-count:1}
+  .grid{grid-template-columns:1fr}
   .topHitsGrid{grid-template-columns:1fr}
   .wrap{padding:18px}
 }
